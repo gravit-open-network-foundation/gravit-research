@@ -6,7 +6,7 @@
 [![Status](https://img.shields.io/badge/Status-Active%20Internet--Draft%20%28individual%29-green)](https://datatracker.ietf.org/doc/draft-gravit-vcp/)
 [![Last Updated](https://img.shields.io/badge/Last%20Updated-2026--07--21-lightgrey)](https://datatracker.ietf.org/doc/draft-gravit-vcp/)
 [![License: Spec](https://img.shields.io/badge/License-IETF%20Trust%20BCP%2078%2F79-lightgrey)](./specs/IETF/)
-[![License: Code](https://img.shields.io/badge/License-Apache%202.0%20%2B%20Commons%20Clause-orange)](./LICENSE)
+[![License: Code](https://img.shields.io/badge/License-Apache%202.0-blue)](./LICENSE)
 
 Gravit is a distributed, trace-preserving, adversarially resilient computation substrate for verifiable reasoning systems.
 
@@ -177,7 +177,7 @@ Initial submission as Individual Internet-Draft to SCITT.
 
 ## License
 
-- **Implementation (engine, sdk, infra):** [Apache 2.0 with Commons Clause](./LICENSE)
+- **Implementation (engine, sdk, infra):** [Apache 2.0](./LICENSE) (Commons Clause removed on 12 Oct 2026)
 - **Specifications & Internet-Drafts (`/specs`, `/specs/IETF`, `/traces`):** IETF Trust Legal Provisions — BCP 78/79 (BSD-like) — **REQUIRED FOR IETF SUBMISSION**
 
 Dual-license structure is intentional to allow IETF adoption while protecting core implementation.

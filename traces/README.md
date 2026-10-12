@@ -30,7 +30,15 @@ All traces are JSONL (one JSON object per line) and can be verified via `tools/v
 }
 ```
 
-**Statistics (generated):**
+> **Correction (12 Oct 2026).** No generator for this trace exists, its figures below could not be
+> reproduced, and its `merkle_root` values cannot be recomputed. It is superseded by the
+> reproducible calibration in [gravit-grover](https://github.com/gravit-open-network-foundation/gravit-grover)
+> (`simulations/theta_calibration.py`: TPR 91.7 %, FPR 7.3 % at theta 0.73) and by
+> [draft-gravit-gevp-08](https://datatracker.ietf.org/doc/draft-gravit-gevp/08/). The file and the
+> text below are kept unchanged for the record. The cost relation C_manipulation > 2 * C_validation
+> holds for 1457 of its 3000 records (48.6 %).
+
+**Statistics (as originally published, not reproducible):**
 - Honest: mean 0.839, sd ~0.07, passes theta 0.73: 1401/1500 (93.4%)
 - Sybil: mean 0.412, sd ~0.12, passes theta 0.73: 6/1500 (0.4%)
 - Total honest >=0.73 across 3000: 1401 honest + 6 false positives (see Section 6 in draft for 2987/3000 example with different seed - this file is one reproducible instance)
