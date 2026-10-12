@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rfc [
+<!ENTITY nbsp "&#160;">
+<!ENTITY zwsp "&#8203;">
+<!ENTITY nbhy "&#8209;">
+<!ENTITY wj "&#8288;">
+]>
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude"
+     category="info"
+     docName="draft-gravit-gevp-07"
+     ipr="trust200902"
+     submissionType="IETF"
+     xml:lang="en"
+     version="3">
+
+  <front>
+    <title abbrev="GEVP">Gravit Epistemic Verification Protocol (GEVP)</title>
+
+    <seriesInfo name="Internet-Draft" value="draft-gravit-gevp-07"/>
+
+    <author initials="A." surname="Konviser" fullname="Alex Konviser">
+      <organization>Gravit Open Network</organization>
+      <address>
+        <email>ietf@gravit.space</email>
+      </address>
+    </author>
+
+    <date/>
+
+    <abstract>
+      <t>
+        GEVP defines a minimal protocol for epistemic convergence.
+        Renamed from VCP to avoid collision with
+        draft-kamimura-scitt-vcp. Invariant C_manip &gt; C_val*2.0 as
+        engineering heuristic. Theta 0.73 RECOMMENDED, pinned 7755f53.
+        Architecture stable per
+        https://github.com/GravitOpenNetwork/gravit-canon. This revision
+        adds a formal mapping between GEVP's Epistemic State Machine and
+        the evidence taxonomy defined in the Gravit Verifiable Epistemic
+        Decision Standard (VEDS).
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+
+    <section anchor="introduction" numbered="true" toc="default">
+      <name>Introduction</name>
+      <t>
+        Gravit open network for verifiable knowledge transformations.
+        Stable. Future is implementations.
+      </t>
+      <t>
+        GEVP defines ESM RAW-&gt;VALIDATED-&gt;VERIFIED-&gt;COMMITTED,
+        verification types, persistence MAY Ledger IPFS GSS DB Archive,
+        bindings separate.
+      </t>
+    </section>
+
+    <section anchor="conventions" numbered="true" toc="default">
+      <name>Conventions</name>
+      <t>
+        The key words "<bcp14>MUST</bcp14>", "<bcp14>MUST NOT</bcp14>",
+        "<bcp14>REQUIRED</bcp14>", "<bcp14>SHALL</bcp14>",
+        "<bcp14>SHALL NOT</bcp14>", "<bcp14>SHOULD</bcp14>",
+        "<bcp14>SHOULD NOT</bcp14>", "<bcp14>RECOMMENDED</bcp14>",
+        "<bcp14>NOT RECOMMENDED</bcp14>", "<bcp14>MAY</bcp14>", and
+        "<bcp14>OPTIONAL</bcp14>" in this document are to be interpreted
+        as described in BCP 14 <xref target="RFC2119"/>
+        <xref target="RFC8174"/> when, and only when, they appear in all
+        capitals, as shown here.
+      </t>
+      <t>
+        Invariant C_manip &gt; C_val*2.0 measurement.
+      </t>
+    </section>
+
+    <section anchor="esm" numbered="true" toc="default">
+      <name>Epistemic State Machine</name>
+      <t>States RAW VALIDATED VERIFIED COMMITTED explicit logged.</t>
+    </section>
+
+    <section anchor="data-types" numbered="true" toc="default">
+      <name>Protocol Data Types</name>
+      <t>
+        Artifact id hash SHA3-256 claim provenance signatures optional.
+      </t>
+      <t>
+        Record artifact-id verifier-id theta 0.73 result timestamp.
+      </t>
+      <t>Convergence h&gt;0.7 f&lt;0.3.</t>
+    </section>
+
+    <section anchor="persistence" numbered="true" toc="default">
+      <name>Persistence</name>
+      <t>MAY not MUST. Ledger IPFS GSS DB Archive.</t>
+    </section>
+
+    <section anchor="security-considerations" numbered="true" toc="default">
+      <name>Security Considerations</name>
+      <t>Replay hash nonce. Sybil cost model. No PII. Signatures OPTIONAL.</t>
+    </section>
+
+    <section anchor="privacy-considerations" numbered="true" toc="default">
+      <name>Privacy Considerations</name>
+      <t>Content MAY encrypted, provenance MAY redacted.</t>
+    </section>
+
+    <section anchor="iana-considerations" numbered="true" toc="default">
+      <name>IANA Considerations</name>
+      <t>No IANA actions.</t>
+    </section>
+
+    <section anchor="implementation-status" numbered="true" toc="default">
+      <name>Implementation Status</name>
+      <t>
+        MVR 0.1.0-mvr https://github.com/GravitOpenNetwork/gravit-canon
+        SHA 7755f53 TPR 93.4 FPR 0.4 theta 0.73 RECOMMENDED.
+      </t>
+    </section>
+
+    <section anchor="veds-mapping" numbered="true" toc="default">
+      <name>VEDS Conformance Mapping</name>
+      <t>
+        This section defines a normative mapping between an Artifact's
+        position in the Epistemic State Machine (<xref target="esm"/>)
+        and the epistemic classification taxonomy defined in Section 4.1
+        of <xref target="I-D.gravit-verifiable-epistemic-decision"/>
+        (VEDS). This mapping specifies one conformant way for a
+        GEVP-based implementation to satisfy the VEDS admissibility and
+        classification requirements referenced from VEDS Section 1;
+        implementations are not required to use GEVP, but if they do,
+        this section applies.
+      </t>
+
+      <section anchor="mapping-raw-validated" numbered="true" toc="default">
+        <name>RAW and VALIDATED</name>
+        <t>
+          A RAW Artifact <bcp14>MUST NOT</bcp14> be treated as
+          admissible evidence under VEDS Section 4.2; it has not yet
+          been checked against any admissibility element.
+        </t>
+        <t>
+          A GEVP implementation <bcp14>MUST</bcp14> transition an
+          Artifact from RAW to VALIDATED only after confirming all four
+          elements required by VEDS Section 4.2.1:
+        </t>
+        <ul spacing="normal">
+          <li><t>Provenance: the Artifact's provenance field resolves
+          to an identifiable, nameable origin.</t></li>
+          <li><t>Integrity: the Artifact's SHA3-256 hash verifies
+          against its content.</t></li>
+          <li><t>Freshness Bound: the Artifact's timestamp falls within
+          the deployment-defined validity interval.</t></li>
+          <li><t>Interpretability: the Artifact's claim conforms to a
+          documented, unambiguous schema.</t></li>
+        </ul>
+        <t>
+          A VALIDATED Artifact is admissible under VEDS Section 4.2 but
+          <bcp14>MUST NOT</bcp14> be assigned an epistemic
+          classification under VEDS Section 4.1.1 higher than
+          Speculative Claim; admissibility alone does not establish
+          truth.
+        </t>
+      </section>
+
+      <section anchor="mapping-verified" numbered="true" toc="default">
+        <name>VERIFIED</name>
+        <t>
+          An Artifact transitions to VERIFIED when at least one Record
+          (<xref target="data-types"/>) is produced for it by a
+          verifier, with a theta value and a result. A VERIFIED
+          Artifact backed by exactly one Record corresponds to a VEDS
+          Probabilistic Assessment (VEDS Section 4.1.1): the verifier's
+          theta-scoring method is the documented, reproducible method,
+          and the recorded theta is the confidence value. Where the
+          Artifact is to serve as part of the basis for a definitive
+          VEDS decision, its theta <bcp14>SHOULD</bcp14> meet or exceed
+          0.73, consistent with the RECOMMENDED threshold in
+          <xref target="implementation-status"/> and with the
+          Impact-Based Evidence Strength requirement in VEDS
+          Section 4.2.3.
+        </t>
+        <t>
+          A GEVP implementation <bcp14>MUST NOT</bcp14> treat a single
+          Record, regardless of its theta value, as satisfying the VEDS
+          Verified Fact definition; a single verifier does not
+          constitute independent cross-corroboration.
+        </t>
+      </section>
+
+      <section anchor="mapping-committed" numbered="true" toc="default">
+        <name>COMMITTED</name>
+        <t>
+          An Artifact transitions to COMMITTED when Records from
+          multiple verifiers achieve Convergence, h&gt;0.7 and
+          f&lt;0.3 (<xref target="data-types"/>). A COMMITTED Artifact
+          corresponds to a VEDS Verified Fact (VEDS Section 4.1.1): the
+          Convergence condition is the mechanism by which the Artifact
+          has been "independently confirmed accurate ... through
+          reproduction, cross-corroboration, or equivalent means," as
+          required by the VEDS Verified Fact definition.
+        </t>
+        <t>
+          This document does not define criteria for treating two
+          verifiers as independent for the purpose of Convergence.
+          Implementations <bcp14>MUST</bcp14> apply criteria at least
+          as strict as the Independent Corroboration Threshold mechanism
+          in VEDS Section 4.6.2, and <bcp14>MUST</bcp14> document their
+          specific criteria in their VEDS Conformance Statement (VEDS
+          Section 5.2).
+        </t>
+      </section>
+
+      <section anchor="mapping-no-laundering" numbered="true" toc="default">
+        <name>Aggregation Restriction</name>
+        <t>
+          A set of RAW or VALIDATED Artifacts, however large,
+          <bcp14>MUST NOT</bcp14> be treated as equivalent to a
+          COMMITTED Artifact. Only Convergence over independently
+          produced Records, per <xref target="mapping-committed"/>,
+          <bcp14>MUST</bcp14> be used to reach COMMITTED. This
+          reflects the No Aggregation Laundering requirement of VEDS
+          Section 4.1.2: aggregating multiple Speculative Claims does
+          not, by itself, produce a Verified Fact.
+        </t>
+      </section>
+    </section>
+
+  </middle>
+
+  <back>
+    <references>
+      <name>Normative References</name>
+      <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119">
+        <front>
+          <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+          <author initials="S." surname="Bradner" fullname="S. Bradner">
+            <organization/>
+          </author>
+          <date year="1997" month="March"/>
+        </front>
+        <seriesInfo name="BCP" value="14"/>
+        <seriesInfo name="RFC" value="2119"/>
+        <seriesInfo name="DOI" value="10.17487/RFC2119"/>
+      </reference>
+      <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174">
+        <front>
+          <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+          <author initials="B." surname="Leiba" fullname="B. Leiba">
+            <organization/>
+          </author>
+          <date year="2017" month="May"/>
+        </front>
+        <seriesInfo name="BCP" value="14"/>
+        <seriesInfo name="RFC" value="8174"/>
+        <seriesInfo name="DOI" value="10.17487/RFC8174"/>
+      </reference>
+      <reference anchor="I-D.gravit-verifiable-epistemic-decision" target="https://datatracker.ietf.org/doc/draft-gravit-verifiable-epistemic-decision/">
+        <front>
+          <title>Gravit Verifiable Epistemic Decision Standard</title>
+          <author initials="A." surname="Konviser" fullname="Alex Konviser">
+            <organization>Gravit Open Network</organization>
+          </author>
+          <date year="2026" month="August" day="9"/>
+        </front>
+        <seriesInfo name="Internet-Draft" value="draft-gravit-verifiable-epistemic-decision-00"/>
+      </reference>
+    </references>
+
+    <section anchor="acknowledgments" numbered="true" toc="default">
+      <name>Acknowledgments</name>
+      <t>Contributors Canon Final v1.1</t>
+    </section>
+  </back>
+</rfc>
