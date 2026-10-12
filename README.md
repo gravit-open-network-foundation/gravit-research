@@ -6,7 +6,7 @@
 [![Status](https://img.shields.io/badge/Status-Active%20Internet--Draft%20%28individual%29-green)](https://datatracker.ietf.org/doc/draft-gravit-vcp/)
 [![Last Updated](https://img.shields.io/badge/Last%20Updated-2026--07--21-lightgrey)](https://datatracker.ietf.org/doc/draft-gravit-vcp/)
 [![License: Spec](https://img.shields.io/badge/License-IETF%20Trust%20BCP%2078%2F79-lightgrey)](./specs/IETF/)
-[![License: Code](https://img.shields.io/badge/License-Apache%202.0%20%2B%20Commons%20Clause-orange)](./LICENSE)
+[![License: Code](https://img.shields.io/badge/License-Apache%202.0-blue)](./LICENSE)
 
 Gravit is a distributed, trace-preserving, adversarially resilient computation substrate for verifiable reasoning systems.
 
