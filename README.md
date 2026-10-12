@@ -177,7 +177,7 @@ Initial submission as Individual Internet-Draft to SCITT.
 
 ## License
 
-- **Implementation (engine, sdk, infra):** [Apache 2.0 with Commons Clause](./LICENSE)
+- **Implementation (engine, sdk, infra):** [Apache 2.0](./LICENSE) (Commons Clause removed on 12 Oct 2026)
 - **Specifications & Internet-Drafts (`/specs`, `/specs/IETF`, `/traces`):** IETF Trust Legal Provisions — BCP 78/79 (BSD-like) — **REQUIRED FOR IETF SUBMISSION**
 
 Dual-license structure is intentional to allow IETF adoption while protecting core implementation.
