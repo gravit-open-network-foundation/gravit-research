@@ -1,0 +1,863 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE rfc [
+<!ENTITY nbsp "&#160;">
+<!ENTITY zwsp "&#8203;">
+<!ENTITY nbhy "&#8209;">
+<!ENTITY wj "&#8288;">
+]>
+<rfc xmlns:xi="http://www.w3.org/2001/XInclude"
+     category="info"
+     docName="draft-gravit-gevp-10"
+     ipr="trust200902"
+     xml:lang="en"
+     version="3">
+
+  <front>
+    <title abbrev="GEVP">Gravit Epistemic Verification Protocol (GEVP)</title>
+
+    <seriesInfo name="Internet-Draft" value="draft-gravit-gevp-10"/>
+
+    <author initials="A." surname="Konviser" fullname="Alex Konviser">
+      <organization>Gravit Open Network</organization>
+      <address>
+        <postal>
+          <city>Zurich</city>
+          <country>Switzerland</country>
+        </postal>
+        <email>ietf@gravit.space</email>
+      </address>
+    </author>
+
+    <date year="2026" month="October" day="22"/>
+
+    <abstract>
+      <t>
+        The Gravit Epistemic Verification Protocol (GEVP) defines how
+        signed evidence Records about an Artifact are screened, grouped
+        by independent source and evaluated, so that a claim is never
+        promoted beyond what independent evidence supports. It specifies
+        the Epistemic State Machine, the Record format and its signature,
+        the meaning of the signed result of a Record, a verifier registry
+        accepted under a threshold of root keys, a content-addressed
+        Decision Record that anyone can reproduce, and optional signed
+        receipts that let an auditor check a history of decisions
+        offline. It maps these states to the evidence taxonomy of the
+        Gravit Verifiable Epistemic Decision Standard (VEDS).
+      </t>
+    </abstract>
+  </front>
+
+  <middle>
+
+    <section anchor="introduction" numbered="true" toc="default">
+      <name>Introduction</name>
+      <t>
+        Automated agents increasingly act on claims they cannot check
+        themselves: a payment is due, a price is confirmed, a step of a
+        procedure was completed. GEVP answers one narrow question about
+        such a claim: given the Records that verifiers produced about
+        it, what may the claim be called, and on what basis?
+      </t>
+      <t>
+        GEVP does not decide whether a claim is true. It decides whether
+        independent, signed and fresh evidence supports it, and it
+        records that decision so that any third party can reproduce it
+        without trusting the party that made it. Its central rule is
+        that aggregating weak or non-independent evidence never by
+        itself turns a claim into a Verified Fact.
+      </t>
+      <t>
+        This document was previously published as the Verifiable
+        Convergence Protocol (VCP) and was renamed to avoid a collision
+        with draft-kamimura-scitt-vcp.
+      </t>
+    </section>
+
+    <section anchor="conventions" numbered="true" toc="default">
+      <name>Conventions and Terminology</name>
+      <t>
+        The key words "<bcp14>MUST</bcp14>", "<bcp14>MUST NOT</bcp14>",
+        "<bcp14>REQUIRED</bcp14>", "<bcp14>SHALL</bcp14>",
+        "<bcp14>SHALL NOT</bcp14>", "<bcp14>SHOULD</bcp14>",
+        "<bcp14>SHOULD NOT</bcp14>", "<bcp14>RECOMMENDED</bcp14>",
+        "<bcp14>NOT RECOMMENDED</bcp14>", "<bcp14>MAY</bcp14>", and
+        "<bcp14>OPTIONAL</bcp14>" in this document are to be interpreted
+        as described in BCP 14 <xref target="RFC2119"/>
+        <xref target="RFC8174"/> when, and only when, they appear in all
+        capitals, as shown here.
+      </t>
+      <dl newline="false" spacing="normal">
+        <dt>Artifact:</dt>
+        <dd>A claim to be evaluated, identified by an artifact_id.</dd>
+        <dt>Record:</dt>
+        <dd>A statement by one verifier about one Artifact
+        (<xref target="record"/>).</dd>
+        <dt>Operator:</dt>
+        <dd>The organisation responsible for one or more verifier keys.
+        All keys of one Operator count as one source.</dd>
+        <dt>Verifier Registry:</dt>
+        <dd>The list of verifier keys, their Operators and revocation
+        status (<xref target="registry"/>).</dd>
+        <dt>Trust Root:</dt>
+        <dd>A set of root keys and a threshold; the Verifier Registry is
+        accepted only when signed by at least that many of them.</dd>
+        <dt>Decision Record:</dt>
+        <dd>The outcome of evaluating one Artifact
+        (<xref target="decision"/>).</dd>
+      </dl>
+      <t>
+        Relation to RATS: the Remote ATtestation procedureS architecture
+        <xref target="RFC9334"/> uses "Evidence" and "Verifier" for claims
+        an Attester makes about itself and the entity that appraises them.
+        In this document a Record is a claim a verifier makes about a third
+        Artifact, and the verifier evaluating Records is the GEVP verifier.
+        GEVP does not appraise device or platform state; a RATS
+        Attestation Result can, however, be one input from which a
+        verifier produces a Record.
+      </t>
+    </section>
+
+    <section anchor="esm" numbered="true" toc="default">
+      <name>Epistemic State Machine</name>
+      <t>
+        An Artifact moves through four states: RAW, VALIDATED, VERIFIED
+        and COMMITTED. Every transition <bcp14>MUST</bcp14> be explicit
+        and logged; no state is reached implicitly.
+      </t>
+      <ul spacing="normal">
+        <li><t>RAW: received, not yet checked.</t></li>
+        <li><t>VALIDATED: provenance, integrity, freshness and
+        interpretability confirmed (<xref target="mapping-raw-validated"/>).</t></li>
+        <li><t>VERIFIED: at least one Record exists.</t></li>
+        <li><t>COMMITTED: Records from independent sources converge
+        (<xref target="convergence"/>) and every rule of
+        <xref target="decision"/> is satisfied.</t></li>
+      </ul>
+    </section>
+
+    <section anchor="data-types" numbered="true" toc="default">
+      <name>Protocol Data Types</name>
+
+      <section anchor="artifact" numbered="true" toc="default">
+        <name>Artifact</name>
+        <t>
+          An Artifact has an artifact_id (a non-empty string), a claim,
+          a provenance and an integrity hash (SHA3-256 of its content).
+          A request to evaluate an Artifact names the claimed state, one
+          of Verified Fact, Probabilistic Assessment or Speculative
+          Claim, or none, and an evaluation context
+          (<xref target="freshness"/>).
+        </t>
+      </section>
+
+      <section anchor="record" numbered="true" toc="default">
+        <name>Record</name>
+        <t>A Record has the following fields.</t>
+        <dl newline="false" spacing="normal">
+          <dt>record_id:</dt><dd>Identifier of the Record.</dd>
+          <dt>verifier_id:</dt><dd>Identifier of the verifier that produced it.</dd>
+          <dt>theta:</dt><dd>The verifier's confidence, a finite number
+          with at most six decimals.</dd>
+          <dt>result:</dt><dd>The verifier's verdict on the claim: true,
+          false or null (<xref target="result"/>).</dd>
+          <dt>timestamp:</dt><dd>UTC time of the check, exactly in the
+          form YYYY-MM-DDTHH:MM:SSZ.</dd>
+          <dt>provenance:</dt><dd>The root of the evidence the verifier used.</dd>
+          <dt>integrity_hash:</dt><dd>Hash of the exact content checked.</dd>
+          <dt>key_id:</dt><dd>The first 16 hexadecimal characters of the
+          SHA-256 hash of the verifier's raw 32-byte Ed25519 public key.</dd>
+          <dt>signature:</dt><dd>Base64 Ed25519 <xref target="RFC8032"/>
+          signature over the signing message (<xref target="signature"/>).</dd>
+        </dl>
+      </section>
+
+      <section anchor="result" numbered="true" toc="default">
+        <name>The Signed Result</name>
+        <t>
+          The result field is the producing verifier's verdict on the
+          claim, and it is covered by the Record's signature:
+        </t>
+        <ul spacing="normal">
+          <li><t>true: the verifier's check supports the claim.</t></li>
+          <li><t>false: the verifier's check contradicts the claim.</t></li>
+          <li><t>null: the check gave no verdict, for example because it
+          could not be performed.</t></li>
+        </ul>
+        <t>
+          An implementation <bcp14>MUST NOT</bcp14> classify an Artifact
+          as a Verified Fact unless at least two independent sources
+          (<xref target="convergence"/>) are represented by counted
+          Records whose result is true. Any counted Record whose result
+          is false <bcp14>MUST</bcp14> prevent a Verified Fact, even if
+          Records with result true outnumber it. A Record whose result
+          is null supports nothing and contradicts nothing. Counted
+          Records are the admissible Records
+          (<xref target="screening"/>) when a Verifier Registry is in
+          use, and all Records otherwise. The Decision Record
+          <bcp14>MUST</bcp14> list the record_id of every counted Record
+          with result false and of every counted Record with result null,
+          so that a contradicted claim and a claim without a verdict
+          produce different Decision Records.
+        </t>
+      </section>
+
+      <section anchor="signature" numbered="true" toc="default">
+        <name>Record Signature</name>
+        <t>
+          The signing message is the UTF-8 encoding of the following
+          eight lines joined by a single line feed (U+000A), with no
+          trailing line feed: the literal "gravit-evidence-v1"; the
+          artifact_id; the record_id; theta formatted with exactly six
+          decimals; the result as "true", "false" or "null"; the
+          timestamp; the provenance; the integrity_hash. Text fields
+          <bcp14>MUST NOT</bcp14> contain line breaks. A Record whose
+          theta cannot be represented exactly with six decimals is
+          malformed.
+        </t>
+        <t>
+          Binding the artifact_id into the message prevents a valid
+          signature from being replayed onto another Artifact.
+        </t>
+      </section>
+
+      <section anchor="convergence" numbered="true" toc="default">
+        <name>Independence and Convergence</name>
+        <t>
+          Records that share a verifier identity or a provenance,
+          directly or through a chain of other Records, form one source.
+          When a Verifier Registry is in use, the verifier identity is
+          the Operator of the signing key, so that all keys of one
+          Operator form one source. Each source is represented by its
+          Record with the lowest theta, so a source cannot outvote
+          itself.
+        </t>
+        <t>
+          Over the representatives, let h be the share with theta of at
+          least 0.7 and f the share with theta below 0.5. Convergence
+          holds when there are at least two representatives, h &gt; 0.7
+          and f &lt; 0.3.
+        </t>
+      </section>
+    </section>
+
+    <section anchor="registry" numbered="true" toc="default">
+      <name>Verifier Registry and Trust Root</name>
+      <t>
+        The Verifier Registry lists, for each key, its key_id, public
+        key, Operator and whether it is revoked. It is distributed
+        together with detached signatures by root keys; each root key
+        signs the octets "gravit-registry-v1" followed by a line feed and
+        the exact registry file. The Trust Root lists the root keys and a
+        threshold, which <bcp14>MUST</bcp14> be greater than half of the
+        root keys. An implementation <bcp14>MUST</bcp14> accept the
+        registry only if at least threshold distinct root keys produced
+        valid signatures.
+      </t>
+      <t>
+        Without an accepted Verifier Registry, an implementation
+        <bcp14>MUST NOT</bcp14> classify an Artifact higher than
+        Probabilistic Assessment, and the Decision Record
+        <bcp14>MUST</bcp14> state that the evaluation of independent
+        signed evidence was not possible (<xref target="decision"/>).
+      </t>
+    </section>
+
+    <section anchor="screening" numbered="true" toc="default">
+      <name>Admissibility Screening</name>
+      <t>
+        With a Verifier Registry, each Record is admissible only if it
+        passes the following checks, in this order; the first failing
+        check gives the reason for exclusion: unsigned (no key_id or no
+        signature), unknown_key, revoked_key, malformed (the signing
+        message cannot be formed), bad_signature. Excluded Records
+        <bcp14>MUST</bcp14> be listed in the Decision Record with their
+        reason. Excluding a Record never rejects the Artifact by itself;
+        it only removes the Record from the evidence that counts.
+      </t>
+    </section>
+
+    <section anchor="freshness" numbered="true" toc="default">
+      <name>Freshness</name>
+      <t>
+        The evaluation context <bcp14>MAY</bcp14> declare a freshness
+        policy with evaluation_time (a timestamp in the Record format)
+        and freshness_max_age_seconds (a non-negative integer). If either
+        is present, both <bcp14>MUST</bcp14> be valid and every Record
+        <bcp14>MUST</bcp14> satisfy 0 &lt;= evaluation_time - timestamp
+        &lt;= freshness_max_age_seconds; otherwise the classification is
+        lowered. Without a policy, a non-empty timestamp is required.
+        The implementation never reads its own clock; the caller decides
+        what "now" is, which keeps decisions reproducible.
+      </t>
+      <t>
+        Time bounds (informative). A timestamp written by a verifier is a
+        claim, not a proof. A deployment can bound the time of a check
+        from both sides: an upper bound from time-stamp tokens
+        <xref target="RFC3161"/> of at least two independent Time-Stamping
+        Authorities over the Record, counting the second earliest, so that
+        one authority cannot move the time; and a lower bound by placing in
+        the checked content a value from a public randomness beacon that
+        could not be known before a given round. The check then happened
+        within that interval. Such bounds are carried in the evidence the
+        integrity_hash covers and do not change the evaluation rules of this
+        document.
+      </t>
+    </section>
+
+    <section anchor="decision" numbered="true" toc="default">
+      <name>Decision Record</name>
+      <t>
+        Evaluating an Artifact produces a Decision Record with: the
+        artifact_id; the identifiers of every rule applied; the final
+        state; a status of SUCCESS (the claimed state is justified),
+        DEGRADED (a lower state is justified) or REJECTED (no state is
+        justified); the record_id of every Record; the convergence
+        metrics of every rule; the reason; the excluded Records with
+        their reasons; and the SHA-256 digests of the Verifier Registry
+        and Trust Root used, if any.
+      </t>
+      <t>
+        The decision_id is the first 16 hexadecimal characters of the
+        SHA3-256 hash of the canonical JSON of all other fields (keys
+        sorted, no insignificant whitespace). Identical inputs therefore
+        give an identical Decision Record on any machine and in any
+        conformant implementation.
+      </t>
+      <t>
+        An implementation <bcp14>SHOULD</bcp14> also state whether the
+        claim was evaluated or could not be evaluated, for example
+        because no Verifier Registry was available or the freshness
+        policy was incomplete. A claim refused after evaluation and a
+        claim that could not be evaluated are different facts and
+        <bcp14>MUST NOT</bcp14> be presented as the same. It
+        <bcp14>SHOULD</bcp14> state what independence rests on: for each
+        Operator involved, either the evidence of its independence that
+        the registry references, or that its independence is assumed,
+        not evidenced. Two valid signatures are not proof of two
+        independent organisations.
+      </t>
+    </section>
+
+    <section anchor="receipts" numbered="true" toc="default">
+      <name>Decision Receipts</name>
+      <t>
+        A service that evaluates Artifacts on behalf of others
+        <bcp14>MAY</bcp14> issue a receipt for each Decision Record. A
+        receipt names the service, the service's key_id, an account, a
+        sequence number, the issue time, the implementation version, the
+        artifact_id, the decision_id, the final state and status, the
+        SHA-256 hash of the canonical request, the SHA-256 hash of the
+        exact result returned, and the SHA-256 hash of the previous
+        receipt of the same account (all zeros for the first). The
+        service signs the canonical JSON of the receipt with Ed25519.
+      </t>
+      <t>
+        An auditor who holds the service's public key can then check,
+        without trusting the service, that every receipt is signed, that
+        each result matches its receipt, and that the chain of receipts
+        is unbroken, so that a receipt removed or altered later is
+        detected.
+      </t>
+    </section>
+
+
+    <section anchor="safety" numbered="true" toc="default">
+      <name>Safety Properties</name>
+      <t>
+        This section states, informatively, what the rules above
+        guarantee. Let an Operator be faulty if it signs Records that do
+        not reflect its check, alone or in collusion with other faulty
+        Operators, and let t be the number of faulty Operators a
+        deployment wants to tolerate.
+      </t>
+      <dl newline="true" spacing="normal">
+        <dt>P1, no self confirmation:</dt>
+        <dd>All keys of one Operator form one source
+        (<xref target="convergence"/>) and Convergence requires at least
+        two representatives. A single Operator, with any number of keys,
+        therefore never reaches a Verified Fact.</dd>
+        <dt>P2, forgery bound:</dt>
+        <dd>If at most t Operators are faulty and a deployment requires at
+        least t+1 independent representatives with result true for a
+        Verified Fact, then every Verified Fact is supported by at least
+        one non-faulty Operator that checked the same integrity_hash.
+        Proof: the representatives come from distinct Operators, and t+1
+        distinct Operators cannot all be faulty. The base rule of this
+        document is t = 1. A deployment that tolerates more faults
+        <bcp14>SHOULD</bcp14> raise the required number accordingly and
+        <bcp14>MUST</bcp14> state it in its policy.</dd>
+        <dt>P3, contradiction veto:</dt>
+        <dd>An admissible representative with result false prevents a
+        Verified Fact however many others agree
+        (<xref target="result"/>). Safety is thereby preferred over
+        availability: up to t faulty Operators can delay a Verified
+        Fact, but cannot create a false one. Resolving disputed Artifacts
+        is a matter of deployment policy and out of scope.</dd>
+        <dt>P4, reproducibility:</dt>
+        <dd>The decision depends only on the request, the Records, the
+        Verifier Registry and the evaluation context, never on the
+        implementation's clock (<xref target="freshness"/>). Equal inputs
+        give the same Decision Record and decision_id in every conforming
+        implementation; the golden test vectors check this.</dd>
+      </dl>
+      <t>
+        P2 assumes that Operators listed as different are in fact
+        independent; <xref target="security-considerations"/> describes
+        how a deployment documents that assumption.
+      </t>
+    </section>
+
+    <section anchor="persistence" numbered="true" toc="default">
+      <name>Persistence</name>
+      <t>
+        Decision Records and receipts <bcp14>MAY</bcp14> be stored in a
+        database, an archive, a content-addressed store or a ledger.
+        GEVP does not require any particular storage; the decision_id and
+        the receipt chain make stored records verifiable wherever they
+        are kept.
+      </t>
+    </section>
+
+    <section anchor="security-considerations" numbered="true" toc="default">
+      <name>Security Considerations</name>
+      <t>
+        The Verifier Registry is trusted input. Signature checks and
+        grouping by Operator cannot detect an Operator listed twice under
+        different names, or collusion between registered Operators.
+        Deployments <bcp14>SHOULD</bcp14> reference evidence of each
+        Operator's independence and report where independence is only
+        assumed (<xref target="decision"/>).
+      </t>
+      <t>
+        A signature proves who produced a Record, not that its content is
+        true. A compromised verifier key or device produces valid
+        signatures; independent corroboration by a second Operator is the
+        defence. Keys <bcp14>MUST</bcp14> be revoked in the registry when
+        compromise is suspected.
+      </t>
+      <t>
+        theta and result are reported by the verifier. An implementation
+        does not recompute them. The signed result
+        (<xref target="result"/>) ensures that a verifier's own negative
+        or absent verdict cannot be counted as support.
+      </t>
+      <t>
+        Earlier revisions stated a cost relation C_manip &gt; 2 * C_val
+        as an engineering invariant. In the trace published with those
+        revisions (pinned 7755f53), the relation holds for 1457 of 3000
+        records (48.6 %). It is therefore retained only as a design
+        target; it is not a guarantee, and deployments
+        <bcp14>MUST NOT</bcp14> rely on it for security.
+      </t>
+      <t>
+        Convergence over unsigned Records offers no protection against a
+        single party fabricating several "independent" Records.
+        Deployments that use COMMITTED as the basis for a VEDS Verified
+        Fact <bcp14>MUST</bcp14> use a Verifier Registry
+        (<xref target="registry"/>).
+      </t>
+    </section>
+
+    <section anchor="privacy-considerations" numbered="true" toc="default">
+      <name>Privacy Considerations</name>
+      <t>
+        Records and Decision Records carry identifiers and hashes, not
+        the content of the evidence. Content <bcp14>MAY</bcp14> be kept
+        encrypted, and provenance <bcp14>MAY</bcp14> be expressed as an
+        opaque identifier. Receipts link the decisions of one account;
+        a service <bcp14>SHOULD</bcp14> use pseudonymous account
+        identifiers in receipts.
+      </t>
+    </section>
+
+    <section anchor="iana-considerations" numbered="true" toc="default">
+      <name>IANA Considerations</name>
+      <t>
+        This document requests no IANA actions in this revision. A later
+        revision is expected to register media types for Records and
+        Decision Records (<xref target="RFC6838"/>) once the encoding in
+        <xref target="encoding"/> is settled.
+      </t>
+    </section>
+
+    <section anchor="implementation-status" numbered="true" toc="default">
+      <name>Implementation Status</name>
+      <t>
+        Note to the RFC Editor: please remove this section before
+        publication, as described in <xref target="RFC7942"/>.
+      </t>
+      <t>
+        Reference verifier: https://github.com/gravit-open-network-foundation/verifier,
+        release v0.6.0 (Python, with a Rust port), Apache-2.0. It
+        implements every normative section of this document. 47 golden
+        test vectors, including seven for the signed result, are
+        reproduced by both implementations, decision_id included. The
+        same code runs in a web browser at
+        https://gravitverifier.space/sandbox/, where any visitor can
+        reproduce all 47 vectors locally.
+      </t>
+      <t>
+        Decision receipts (<xref target="receipts"/>) are implemented by
+        an early-access hosted service,
+        https://github.com/gravit-open-network-foundation/gravit-verifier-service,
+        with a client that verifies receipts and exports offline.
+      </t>
+      <t>
+        A reference adapter for the SAFR v1.1 runtime governance
+        framework, https://github.com/gravit-open-network-foundation/gravit-safr-adapter,
+        uses GEVP to corroborate the steps of an agent's action trace.
+        An external reviewer used it to show that release v0.5.0 counted
+        Records with result false or null as support; the signed result
+        rule (<xref target="result"/>) was added in v0.6.0 in response.
+      </t>
+      <t>
+        Third-party operators: a public verification of 932 transactions of
+        two Solana liquidity pools,
+        https://github.com/gravit-open-network-foundation/gravit-coffer-verification,
+        includes an operator guide by which an independent organisation
+        re-runs the check, creates its own key and signs a Record. As of
+        this revision, all keys in published examples are test keys; no
+        independent Operator has yet signed, and the Trust Root key ceremony
+        is pending. Independent implementations from the published text and
+        test vectors are invited.
+      </t>
+      <t>
+        Reproducible evaluation: https://github.com/gravit-open-network-foundation/gravit-eval-pack
+        reproduces every figure in this section with one command.
+      </t>
+      <t>
+        Threshold calibration: a 3000-claim trace generated by the
+        consensus engine at https://github.com/gravit-open-network-foundation/gravit-grover
+        (10x Sybil amplification) gives, at theta = 0.73, a true
+        positive rate of 91.7 % (1376/1500) and a false positive rate of
+        7.3 % (110/1500). The rates are identical for every theta in
+        [0.11, 0.78]: once the network has converged, the threshold has
+        little effect; what decides is whether honest evidence
+        outweighs the Sybil evidence.
+      </t>
+      <t>
+        Correction: revisions -00 to -07 reported TPR 93.4 % and FPR
+        0.4 % at theta 0.73 from a trace pinned at commit 7755f53 of the
+        gravitnet repository. No generator for that trace exists and its
+        figures could not be reproduced; it is superseded by the
+        calibration above and kept unchanged for the record.
+      </t>
+    </section>
+
+    <section anchor="veds-mapping" numbered="true" toc="default">
+      <name>VEDS Conformance Mapping</name>
+      <t>
+        This section defines a normative mapping between an Artifact's
+        position in the Epistemic State Machine (<xref target="esm"/>)
+        and the epistemic classification taxonomy defined in Section 4.1
+        of <xref target="I-D.gravit-verifiable-epistemic-decision"/>
+        (VEDS). This mapping specifies one conformant way for a
+        GEVP-based implementation to satisfy the VEDS admissibility and
+        classification requirements referenced from VEDS Section 1;
+        implementations are not required to use GEVP, but if they do,
+        this section applies.
+      </t>
+
+      <section anchor="mapping-raw-validated" numbered="true" toc="default">
+        <name>RAW and VALIDATED</name>
+        <t>
+          A RAW Artifact <bcp14>MUST NOT</bcp14> be treated as
+          admissible evidence under VEDS Section 4.2; it has not yet
+          been checked against any admissibility element.
+        </t>
+        <t>
+          A GEVP implementation <bcp14>MUST</bcp14> transition an
+          Artifact from RAW to VALIDATED only after confirming all four
+          elements required by VEDS Section 4.2.1:
+        </t>
+        <ul spacing="normal">
+          <li><t>Provenance: the Artifact's provenance field resolves
+          to an identifiable, nameable origin.</t></li>
+          <li><t>Integrity: the Artifact's SHA3-256 hash verifies
+          against its content.</t></li>
+          <li><t>Freshness Bound: the Artifact's timestamp falls within
+          the deployment-defined validity interval.</t></li>
+          <li><t>Interpretability: the Artifact's claim conforms to a
+          documented, unambiguous schema.</t></li>
+        </ul>
+        <t>
+          A VALIDATED Artifact is admissible under VEDS Section 4.2 but
+          <bcp14>MUST NOT</bcp14> be assigned an epistemic
+          classification under VEDS Section 4.1.1 higher than
+          Speculative Claim; admissibility alone does not establish
+          truth.
+        </t>
+      </section>
+
+      <section anchor="mapping-verified" numbered="true" toc="default">
+        <name>VERIFIED</name>
+        <t>
+          An Artifact transitions to VERIFIED when at least one Record
+          (<xref target="record"/>) is produced for it by a verifier,
+          with a theta value and a result. A VERIFIED Artifact backed by
+          exactly one Record corresponds to a VEDS Probabilistic
+          Assessment (VEDS Section 4.1.1): the verifier's theta-scoring
+          method is the documented, reproducible method, and the recorded
+          theta is the confidence value. Where the Artifact is to serve
+          as part of the basis for a definitive VEDS decision, the
+          deployment <bcp14>MUST</bcp14> document the theta threshold it
+          applies and how that threshold was calibrated, consistent with
+          the Impact-Based Evidence Strength requirement in VEDS Section
+          4.2.3. This document does not recommend a specific value (see
+          <xref target="implementation-status"/>).
+        </t>
+        <t>
+          A GEVP implementation <bcp14>MUST NOT</bcp14> treat a single
+          Record, regardless of its theta value, as satisfying the VEDS
+          Verified Fact definition; a single verifier does not
+          constitute independent cross-corroboration.
+        </t>
+      </section>
+
+      <section anchor="mapping-committed" numbered="true" toc="default">
+        <name>COMMITTED</name>
+        <t>
+          An Artifact transitions to COMMITTED when Records from
+          independent sources achieve Convergence
+          (<xref target="convergence"/>) and the signed result rule
+          (<xref target="result"/>) is satisfied. A COMMITTED Artifact
+          corresponds to a VEDS Verified Fact (VEDS Section 4.1.1): the
+          Convergence condition is the mechanism by which the Artifact
+          has been "independently confirmed accurate ... through
+          reproduction, cross-corroboration, or equivalent means," as
+          required by the VEDS Verified Fact definition.
+        </t>
+        <t>
+          The grouping of <xref target="convergence"/> is the minimum
+          criterion for independence. Implementations <bcp14>MUST</bcp14>
+          apply criteria at least as strict as the Independent
+          Corroboration Threshold mechanism in VEDS Section 4.6.2, and
+          <bcp14>MUST</bcp14> document their specific criteria in their
+          VEDS Conformance Statement (VEDS Section 5.2).
+        </t>
+      </section>
+
+      <section anchor="mapping-no-laundering" numbered="true" toc="default">
+        <name>Aggregation Restriction</name>
+        <t>
+          A set of RAW or VALIDATED Artifacts, however large,
+          <bcp14>MUST NOT</bcp14> be treated as equivalent to a
+          COMMITTED Artifact. Only Convergence over independently
+          produced Records, per <xref target="mapping-committed"/>,
+          <bcp14>MUST</bcp14> be used to reach COMMITTED. This
+          reflects the No Aggregation Laundering requirement of VEDS
+          Section 4.1.2: aggregating multiple Speculative Claims does
+          not, by itself, produce a Verified Fact.
+        </t>
+      </section>
+    </section>
+
+  </middle>
+
+  <back>
+    <references>
+      <name>References</name>
+      <references>
+        <name>Normative References</name>
+        <reference anchor="RFC2119" target="https://www.rfc-editor.org/info/rfc2119">
+          <front>
+            <title>Key words for use in RFCs to Indicate Requirement Levels</title>
+            <author initials="S." surname="Bradner" fullname="S. Bradner"><organization/></author>
+            <date year="1997" month="March"/>
+          </front>
+          <seriesInfo name="BCP" value="14"/>
+          <seriesInfo name="RFC" value="2119"/>
+          <seriesInfo name="DOI" value="10.17487/RFC2119"/>
+        </reference>
+        <reference anchor="RFC8174" target="https://www.rfc-editor.org/info/rfc8174">
+          <front>
+            <title>Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words</title>
+            <author initials="B." surname="Leiba" fullname="B. Leiba"><organization/></author>
+            <date year="2017" month="May"/>
+          </front>
+          <seriesInfo name="BCP" value="14"/>
+          <seriesInfo name="RFC" value="8174"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8174"/>
+        </reference>
+        <reference anchor="RFC8032" target="https://www.rfc-editor.org/info/rfc8032">
+          <front>
+            <title>Edwards-Curve Digital Signature Algorithm (EdDSA)</title>
+            <author initials="S." surname="Josefsson" fullname="S. Josefsson"><organization/></author>
+            <author initials="I." surname="Liusvaara" fullname="I. Liusvaara"><organization/></author>
+            <date year="2017" month="January"/>
+          </front>
+          <seriesInfo name="RFC" value="8032"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8032"/>
+        </reference>
+        <reference anchor="I-D.gravit-verifiable-epistemic-decision" target="https://datatracker.ietf.org/doc/draft-gravit-verifiable-epistemic-decision/">
+          <front>
+            <title>Gravit Verifiable Epistemic Decision Standard</title>
+            <author initials="A." surname="Konviser" fullname="Alex Konviser">
+              <organization>Gravit Open Network</organization>
+            </author>
+            <date year="2026" month="August" day="9"/>
+          </front>
+          <seriesInfo name="Internet-Draft" value="draft-gravit-verifiable-epistemic-decision-00"/>
+        </reference>
+      </references>
+      <references>
+        <name>Informative References</name>
+        <reference anchor="RFC9334" target="https://www.rfc-editor.org/info/rfc9334">
+          <front>
+            <title>Remote ATtestation procedureS (RATS) Architecture</title>
+            <author initials="H." surname="Birkholz" fullname="H. Birkholz"><organization/></author><author initials="D." surname="Thaler" fullname="D. Thaler"><organization/></author><author initials="M." surname="Richardson" fullname="M. Richardson"><organization/></author><author initials="N." surname="Smith" fullname="N. Smith"><organization/></author><author initials="W." surname="Pan" fullname="W. Pan"><organization/></author>
+            <date year="2023" month="January"/>
+          </front>
+          <seriesInfo name="RFC" value="9334"/>
+          <seriesInfo name="DOI" value="10.17487/RFC9334"/>
+        </reference>
+        <reference anchor="RFC3161" target="https://www.rfc-editor.org/info/rfc3161">
+          <front>
+            <title>Internet X.509 Public Key Infrastructure Time-Stamp Protocol (TSP)</title>
+            <author initials="C." surname="Adams" fullname="C. Adams"><organization/></author><author initials="P." surname="Cain" fullname="P. Cain"><organization/></author><author initials="D." surname="Pinkas" fullname="D. Pinkas"><organization/></author><author initials="R." surname="Zuccherato" fullname="R. Zuccherato"><organization/></author>
+            <date year="2001" month="August"/>
+          </front>
+          <seriesInfo name="RFC" value="3161"/>
+          <seriesInfo name="DOI" value="10.17487/RFC3161"/>
+        </reference>
+        <reference anchor="RFC6838" target="https://www.rfc-editor.org/info/rfc6838">
+          <front>
+            <title>Media Type Specifications and Registration Procedures</title>
+            <author initials="N." surname="Freed" fullname="N. Freed"><organization/></author><author initials="J." surname="Klensin" fullname="J. Klensin"><organization/></author><author initials="T." surname="Hansen" fullname="T. Hansen"><organization/></author>
+            <date year="2013" month="January"/>
+          </front>
+          <seriesInfo name="RFC" value="6838"/>
+          <seriesInfo name="DOI" value="10.17487/RFC6838"/>
+        </reference>
+        <reference anchor="RFC8610" target="https://www.rfc-editor.org/info/rfc8610">
+          <front>
+            <title>Concise Data Definition Language (CDDL): A Notational Convention to Express Concise Binary Object Representation (CBOR) and JSON Data Structures</title>
+            <author initials="H." surname="Birkholz" fullname="H. Birkholz"><organization/></author><author initials="C." surname="Vigano" fullname="C. Vigano"><organization/></author><author initials="C." surname="Bormann" fullname="C. Bormann"><organization/></author>
+            <date year="2019" month="June"/>
+          </front>
+          <seriesInfo name="RFC" value="8610"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8610"/>
+        </reference>
+        <reference anchor="RFC8949" target="https://www.rfc-editor.org/info/rfc8949">
+          <front>
+            <title>Concise Binary Object Representation (CBOR)</title>
+            <author initials="C." surname="Bormann" fullname="C. Bormann"><organization/></author><author initials="P." surname="Hoffman" fullname="P. Hoffman"><organization/></author>
+            <date year="2020" month="December"/>
+          </front>
+          <seriesInfo name="RFC" value="8949"/>
+          <seriesInfo name="DOI" value="10.17487/RFC8949"/>
+        </reference>
+        <reference anchor="RFC9052" target="https://www.rfc-editor.org/info/rfc9052">
+          <front>
+            <title>CBOR Object Signing and Encryption (COSE): Structures and Process</title>
+            <author initials="J." surname="Schaad" fullname="J. Schaad"><organization/></author>
+            <date year="2022" month="August"/>
+          </front>
+          <seriesInfo name="RFC" value="9052"/>
+          <seriesInfo name="DOI" value="10.17487/RFC9052"/>
+        </reference>
+        <reference anchor="RFC9162" target="https://www.rfc-editor.org/info/rfc9162">
+          <front>
+            <title>Certificate Transparency Version 2.0</title>
+            <author initials="B." surname="Laurie" fullname="B. Laurie"><organization/></author><author initials="E." surname="Messeri" fullname="E. Messeri"><organization/></author><author initials="R." surname="Stradling" fullname="R. Stradling"><organization/></author>
+            <date year="2021" month="December"/>
+          </front>
+          <seriesInfo name="RFC" value="9162"/>
+          <seriesInfo name="DOI" value="10.17487/RFC9162"/>
+        </reference>
+        <reference anchor="RFC7942" target="https://www.rfc-editor.org/info/rfc7942">
+          <front>
+            <title>Improving Awareness of Running Code: The Implementation Status Section</title>
+            <author initials="Y." surname="Sheffer" fullname="Y. Sheffer"><organization/></author>
+            <author initials="A." surname="Farrel" fullname="A. Farrel"><organization/></author>
+            <date year="2016" month="July"/>
+          </front>
+          <seriesInfo name="BCP" value="205"/>
+          <seriesInfo name="RFC" value="7942"/>
+          <seriesInfo name="DOI" value="10.17487/RFC7942"/>
+        </reference>
+      </references>
+    </references>
+
+
+    <section anchor="encoding" numbered="true" toc="default">
+      <name>Toward a CBOR and COSE Encoding (informative)</name>
+      <t>
+        This revision signs a line-based message (<xref target="signature"/>),
+        which the reference implementation and the test vectors use. To
+        align with existing IETF signing formats, a future revision is
+        expected to define an additional encoding: a Record as a
+        deterministically encoded CBOR map (<xref target="RFC8949"/>,
+        Section 4.2) inside a COSE_Sign1 structure (<xref target="RFC9052"/>),
+        with the artifact_id bound as external additional data, so that
+        Records and Decision Receipts can be carried by transparency
+        services that store COSE signed statements and Merkle tree
+        receipts (<xref target="RFC9162"/>). The data model in CDDL
+        (<xref target="RFC8610"/>), equal for the JSON form of this
+        revision:
+      </t>
+      <sourcecode type="cddl"><![CDATA[
+gevp-record = {
+  record_id:      tstr,
+  verifier_id:    tstr,
+  theta:          float,          ; at most six decimals
+  result:         bool / null,    ; the signed verdict
+  timestamp:      tstr,           ; YYYY-MM-DDTHH:MM:SSZ, UTC
+  provenance:     tstr,
+  integrity_hash: tstr,
+  ? key_id:       tstr,           ; 16 hex characters
+  ? signature:    tstr            ; base64 Ed25519 signature
+}
+]]></sourcecode>
+      <t>
+        A hybrid signature, Ed25519 together with a post-quantum signature
+        algorithm, is planned for the same encoding; until then, Records
+        are signed with Ed25519 <xref target="RFC8032"/> only.
+      </t>
+    </section>
+    <section anchor="changes" numbered="true" toc="default">
+      <name>Changes from draft-gravit-gevp-09</name>
+      <ul spacing="normal">
+        <li><t>New: Safety Properties (<xref target="safety"/>) with a
+        fault parameter t, the forgery bound and the contradiction veto.</t></li>
+        <li><t>New: relation of the terms to the RATS architecture.</t></li>
+        <li><t>New: time bounds from independent time-stamp authorities and
+        a public randomness beacon (informative).</t></li>
+        <li><t>New: data model in CDDL and the planned CBOR and COSE
+        encoding (informative appendix).</t></li>
+        <li><t>Implementation Status: third-party operator guide; honest
+        status of keys and of the key ceremony.</t></li>
+        <li><t>IANA Considerations: media types announced for a later
+        revision.</t></li>
+      </ul>
+      <t>Changes in draft-gravit-gevp-09, from -08:</t>
+      <ul spacing="normal">
+        <li><t>The document is rewritten as a complete specification:
+        terminology, Record fields, signing message, independence and
+        convergence, Verifier Registry and Trust Root, admissibility
+        screening, freshness and the Decision Record are now specified
+        precisely, matching the reference verifier.</t></li>
+        <li><t>New: the signed result of a Record (true, false, null) and
+        its effect on a Verified Fact.</t></li>
+        <li><t>New: evaluated versus not evaluable, and the basis of
+        independence in the Decision Record.</t></li>
+        <li><t>New: optional Decision Receipts for offline audit.</t></li>
+        <li><t>Security Considerations: a Verifier Registry is now
+        required for COMMITTED as the basis of a Verified Fact.</t></li>
+        <li><t>Implementation Status updated to release v0.6.0 with 47
+        test vectors; the corrections of -08 are kept.</t></li>
+      </ul>
+    </section>
+
+    <section anchor="acknowledgments" numbered="false" toc="default">
+      <name>Acknowledgments</name>
+      <t>
+        The author thanks the reviewer who showed, with a reproduction,
+        that the result field was not applied, and the participants of
+        IETF mailing list discussions whose questions shaped this
+        revision. Toshikatsu Oga suggested bounding the time of a check
+        from below as well as from above. Contributors Canon Final v1.1.
+      </t>
+    </section>
+  </back>
+</rfc>
