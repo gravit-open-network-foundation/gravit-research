@@ -32,7 +32,7 @@ def get_vcp_metadata(request: Request):
         },
         "links": [
             {
-                "rel": "https://gravit.network/vcp/schema/claim",
+                "rel": "https://gravit.space/vcp/schema/claim",
                 "href": f"{base_url}/schemas/claim.json",
                 "type": "application/schema+json"
             }
