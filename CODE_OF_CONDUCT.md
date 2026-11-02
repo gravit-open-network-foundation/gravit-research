@@ -36,7 +36,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project leaders responsible for enforcement at [укажи email или issue template, например: conduct@gravit.network или через private issue].
+Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the project leaders responsible for enforcement through an issue in this repository or, for confidential matters, by email to ietf@gravit.space.
 All complaints will be reviewed and investigated promptly and fairly.
 
 All project leaders are obligated to respect the privacy and security of the reporter of any incident.
